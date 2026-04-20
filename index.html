@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Дижитал График - 10-р анги</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Rubik', sans-serif;
+            background: linear-gradient(135deg, #1B2838 0%, #004E89 100%);
+            background-attachment: fixed;
+            color: #ffffff;
+            min-height: 100vh;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1B2838;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #FF6B35;
+            border-radius: 4px;
+        }
+
+        /* Tab buttons */
+        .tab-btn.active {
+            border-bottom: 3px solid #FF6B35;
+            color: #FF6B35;
+            font-weight: 600;
+        }
+
+        /* Study Cards */
+        .study-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .study-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .card-content {
+            max-height: 0;
+            opacity: 0;
+            transition: all 0.4s ease-out;
+        }
+        .study-card.expanded .card-content {
+            max-height: 300px;
+            opacity: 1;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+
+        /* Illustrations */
+        .pixel-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2px;
+            width: 60px;
+            height: 60px;
+        }
+        .pixel-grid div { background: #fff; opacity: 0.8; }
+        .pixel-grid div:nth-child(even) { opacity: 0.5; }
+        .pixel-grid div:nth-child(3n) { opacity: 0.3; }
+
+        .layer-stack {
+            position: relative;
+            height: 60px;
+            width: 60px;
+        }
+        .layer {
+            position: absolute;
+            width: 40px; height: 40px;
+            border: 2px solid white;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+        .study-card:hover .layer:nth-child(1) { transform: translate(0, 0); }
+        .study-card:hover .layer:nth-child(2) { transform: translate(10px, -10px); }
+        .study-card:hover .layer:nth-child(3) { transform: translate(20px, -20px); }
+        .layer:nth-child(1) { transform: translate(5px, -5px); z-index: 3; }
+        .layer:nth-child(2) { transform: translate(10px, -10px); z-index: 2; }
+        .layer:nth-child(3) { transform: translate(15px, -15px); z-index: 1; }
+
+        /* RGB / CMYK Circles */
+        .circle-container {
+            position: relative;
+            width: 80px; height: 80px;
+            margin: 0 auto;
+        }
+        .color-circle {
+            position: absolute;
+            width: 50px; height: 50px;
+            border-radius: 50%;
+        }
+        .rgb-mode { mix-blend-mode: screen; background: #000; padding: 20px; border-radius: 12px; }
+        .rgb-mode .c1 { background: #ff0000; top: 0; left: 15px; }
+        .rgb-mode .c2 { background: #00ff00; bottom: 0; left: 0; }
+        .rgb-mode .c3 { background: #0000ff; bottom: 0; right: 0; }
+
+        .cmyk-mode { mix-blend-mode: multiply; background: #fff; padding: 20px; border-radius: 12px; }
+        .cmyk-mode .c1 { background: #00ffff; top: 0; left: 15px; }
+        .cmyk-mode .c2 { background: #ff00ff; bottom: 0; left: 0; }
+        .cmyk-mode .c3 { background: #ffff00; bottom: 0; right: 0; }
+
+        /* Match Game */
+        .match-item {
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .match-item.selected {
+            ring: 2px;
+            ring-color: white;
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(255, 107, 53, 0.6);
+        }
+        .match-item.matched {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: scale(0.95);
+        }
+        .category-box {
+            transition: all 0.3s;
+        }
+        .category-box:hover {
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Animations */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+        }
+        .shake { animation: shake 0.4s ease-in-out; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-5xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-[#FF6B35] to-[#F18F01]">
+                Дижитал График
+            </h1>
+            <p class="text-gray-300">10-р ангийн мэдээлэл зүйн интерактив хичээл</p>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="flex justify-center flex-wrap mb-8 gap-2 border-b border-gray-600 pb-2">
+            <button onclick="switchTab('study')" id="tab-btn-study" class="tab-btn active px-4 py-2 text-lg transition-colors hover:text-[#FF6B35]"><i class="fa-solid fa-book-open mr-2"></i>Судлах</button>
+            <button onclick="switchTab('quiz')" id="tab-btn-quiz" class="tab-btn px-4 py-2 text-lg transition-colors hover:text-[#FF6B35]"><i class="fa-solid fa-clipboard-question mr-2"></i>Quiz</button>
+            <button onclick="switchTab('match')" id="tab-btn-match" class="tab-btn px-4 py-2 text-lg transition-colors hover:text-[#FF6B35]"><i class="fa-solid fa-puzzle-piece mr-2"></i>Тохируулах</button>
+            <button onclick="switchTab('compare')" id="tab-btn-compare" class="tab-btn px-4 py-2 text-lg transition-colors hover:text-[#FF6B35]"><i class="fa-solid fa-scale-balanced mr-2"></i>Харьцуулах</button>
+        </nav>
+
+        <!-- TAB 1: СУДЛАХ -->
+        <section id="tab-study" class="tab-content block">
+            <p class="text-center mb-6 text-gray-200">Картууд дээр дарж дэлгэрэнгүй мэдээлэл харна уу.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                
+                <div class="study-card rounded-xl p-5" style="background-color: #FF6B35;" onclick="this.classList.toggle('expanded')">
+                    <h3 class="text-2xl font-bold mb-2"><i class="fa-solid fa-border-all mr-2"></i>Пиксел</h3>
+                    <p class="text-sm font-medium">Зургийн хамгийн жижиг нэгж. Picture Element.</p>
+                    <div class="card-content flex items-center justify-between">
+                        <p class="text-sm">Дэлгэц дээрх дүрс нь маш олон жижиг дөрвөлжин нүднүүдээс бүрддэг бөгөөд тэдгээрийг пиксел гэнэ. Пиксел бүр тодорхой нэг өнгө агуулдаг.</p>
+                        <div class="pixel-grid ml-4 shrink-0">
+                            <div></div><div></div><div></div><div></div>
+                            <div></div><div></div><div></div><div></div>
+                            <div></div><div></div><div></div><div></div>
+                            <div></div><div></div><div></div><div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="study-card rounded-xl p-5" style="background-color: #004E89;" onclick="this.classList.toggle('expanded')">
+                    <h3 class="text-2xl font-bold mb-2"><i class="fa-solid fa-compress mr-2"></i>Нягтрал (Resolution)</h3>
+                    <p class="text-sm font-medium">Нэг инч дэх пикселийн тоо (PPI/DPI).</p>
+                    <div class="card-content">
+                        <p class="text-sm mb-2">Нягтрал өндөр байх тусам зураг илүү тод, чанартай байна.</p>
+                        <ul class="text-sm list-disc list-inside">
+                            <li><strong>72 PPI:</strong> Дэлгэцэнд зориулсан (Вэб, Мобайл)</li>
+                            <li><strong>300 DPI:</strong> Хэвлэлд зориулсан (Сонин, Сэтгүүл)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="study-card rounded-xl p-5" style="background-color: #004E89;" onclick="this.classList.toggle('expanded')">
+                    <h3 class="text-2xl font-bold mb-2"><i class="fa-solid fa-image mr-2"></i>Растер</h3>
+                    <p class="text-sm font-medium">Пикселээс бүтдэг, томруулахад бүдгэрдэг.</p>
+                    <div class="card-content">
+                        <p class="text-sm mb-2">Фото зураг гэх мэт бодит, олон өнгөтэй дүрслэлд тохиромжтой.</p>
+                        <p class="text-sm font-bold">Форматууд: JPG, PNG, GIF</p>
+                        <p class="text-sm font-bold">Програм: Adobe Photoshop</p>
+                    </div>
+                </div>
+
+                <div class="study-card rounded-xl p-5" style="background-color: #F18F01;" onclick="this.classList.toggle('expanded')">
+                    <h3 class="text-2xl font-bold mb-2"><i class="fa-solid fa-bezier-curve mr-2"></i>Вектор</h3>
+                    <p class="text-sm font-medium">Математик томьёогоор бүтдэг, томруулахад бүдгэрдэггүй.</p>
+                    <div class="card-content">
+                        <p class="text-sm mb-2">Цэг, шугам, муруйгаар дүрслэгддэг. Лого, дүрс, зурагт хуудас хийхэд тохиромжтой.</p>
+                        <p class="text-sm font-bold">Форматууд: SVG, AI, EPS</p>
+                        <p class="text-sm font-bold">Програм: Adobe Illustrator</p>
+                    </div>
+                </div>
+
+                <div class="study-card rounded-xl p-5" style="background-color: #FF6B35;" onclick="this.classList.toggle('expanded')">
+                    <h3 class="text-2xl font-bold mb-2"><i class="fa-solid fa-file-image mr-2"></i>JPG / JPEG</h3>
+                    <p class="text-sm font-medium">Хамгийн түгээмэл, тунгалаг дэвсгэргүй, жижиг хэмжээ.</p>
+                    <div class="card-content">
+                        <p class="text-sm">Гэрэл зураг, олон өнгөтэй нарийн зураг хадгалахад хамгийн тохиромжтой. Файлын хэмжээг багасгаж шахдаг ч чанараа алдах магадлалтай (lossy compression).</p>
+                    </div>
+                </div>
+
+                <div class="study-card rounded-xl p-5" style="background-color: #004E89;" onclick="this.classList.toggle('expanded')">
+                    <h3 class="text-2xl font-bold mb-2"><i class="fa-regular fa-image mr-2"></i>PNG</h3>
+                    <p class="text-sm font-medium">Тунгалаг дэвсгэртэй, лого icon-д тохиромжтой.</p>
+                    <div class="card-content">
+                        <p class="text-sm">Чанараа алдалгүйгээр (lossless) хадгалдаг. Арын дэвсгэрийг पारदर्शी (transparent) болгож хадгалах боломжтой тул вэбсайт, график дизайнд их ашиглагддаг.</p>
+                    </div>
+                </div>
+
+                <div class="study-card rounded-xl p-5" style="background-color: #F18F01;" onclick="this.classList.toggle('expanded')">
+                    <h3 class="text-2xl font-bold mb-2"><i class="fa-solid fa-film mr-2"></i>GIF</h3>
+                    <p class="text-sm font-medium">Хөдөлгөөнт зураг, animation, жижиг хэмжээ.</p>
+                    <div class="card-content">
+                        <p class="text-sm">Хамгийн ихдээ 256 өнгө л агуулдаг тул гэрэл зурагт тохиромжгүй. Харин богино хөдөлгөөнт дүрс (meme), энгийн графикт төгс тохирно.</p>
+                    </div>
+                </div>
+
+                <div class="study-card rounded-xl p-5" style="background-color: #533483;" onclick="this.classList.toggle('expanded')">
+                    <h3 class="text-2xl font-bold mb-2"><i class="fa-solid fa-layer-group mr-2"></i>PSD</h3>
+                    <p class="text-sm font-medium">Photoshop файл, layer хадгалдаг, маш том.</p>
+                    <div class="card-content">
+                        <p class="text-sm">Adobe Photoshop-ын эх файл. Бүх хийсэн өөрчлөлт, давхаргууд (layer), эффектүүдээ хадгалдаг тул дараа нь дахин засах боломжтой.</p>
+                    </div>
+                </div>
+
+                <div class="study-card rounded-xl p-5" style="background-color: #DC2626;" onclick="this.classList.toggle('expanded')">
+                    <h3 class="text-2xl font-bold mb-2"><i class="fa-solid fa-desktop mr-2"></i>RGB</h3>
+                    <p class="text-sm font-medium">Red+Green+Blue, дэлгэцэнд зориулсан.</p>
+                    <div class="card-content flex items-center justify-between">
+                        <p class="text-sm">Гэрлийн өнгөнүүд. Улаан, Ногоон, Цэнхэр өнгүүдийг хольж 16.7 сая өнгийг үүсгэдэг. Монитор, утас, зурагтанд ашиглана.</p>
+                        <div class="circle-container rgb-mode shrink-0 ml-4">
+                            <div class="color-circle c1"></div>
+                            <div class="color-circle c2"></div>
+                            <div class="color-circle c3"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="study-card rounded-xl p-5" style="background-color: #0891B2;" onclick="this.classList.toggle('expanded')">
+                    <h3 class="text-2xl font-bold mb-2"><i class="fa-solid fa-print mr-2"></i>CMYK</h3>
+                    <p class="text-sm font-medium">Cyan+Magenta+Yellow+Key, хэвлэхэд зориулсан.</p>
+                    <div class="card-content flex items-center justify-between">
+                        <p class="text-sm text-gray-100">Бэхний өнгөнүүд. Цайвар цэнхэр, Ягаан, Шар болон Хар (Key) өнгүүдийг хольж хэвлэх өнгөө гаргана. Хэвлэлийн үйлдвэрт ашиглана.</p>
+                        <div class="circle-container cmyk-mode shrink-0 ml-4">
+                            <div class="color-circle c1"></div>
+                            <div class="color-circle c2"></div>
+                            <div class="color-circle c3"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="study-card rounded-xl p-5" style="background-color: #10B981;" onclick="this.classList.toggle('expanded')">
+                    <h3 class="text-2xl font-bold mb-2"><i class="fa-solid fa-clone mr-2"></i>Layer (Давхарга)</h3>
+                    <p class="text-sm font-medium">Тунгалаг хуудсууд давхарлаж тавьсантай адил.</p>
+                    <div class="card-content flex items-center justify-between">
+                        <p class="text-sm">Зургийн хэсгүүдийг тус тусад нь давхарга дээр байрлуулснаар нэгийг нь засахад бусдад нь нөлөөлөхгүйгээр ажиллах боломжтой болдог.</p>
+                        <div class="layer-stack ml-4 shrink-0">
+                            <div class="layer"></div>
+                            <div class="layer"></div>
+                            <div class="layer"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- TAB 2: QUIZ -->
+        <section id="tab-quiz" class="tab-content hidden">
+            <div class="bg-gray-800 bg-opacity-50 backdrop-blur rounded-2xl p-6 md:p-10 max-w-3xl mx-auto shadow-2xl border border-gray-700">
+                <div id="quiz-intro" class="text-center">
+                    <h2 class="text-3xl font-bold mb-4"><i class="fa-solid fa-gamepad mr-3 text-[#FF6B35]"></i>Мэдлэгээ шалгая!</h2>
+                    <p class="mb-6 text-gray-300">Санамсаргүй байдлаар сонгогдсон 5 асуултад хариулаарай.</p>
+                    <button onclick="startQuiz()" class="bg-[#FF6B35] hover:bg-[#e85a2c] text-white px-8 py-3 rounded-full font-bold text-lg transition-transform transform hover:scale-105">
+                        <i class="fa-solid fa-play mr-2"></i>Эхлэх
+                    </button>
+                </div>
+                
+                <div id="quiz-container" class="hidden">
+                    <div class="flex justify-between items-center mb-6">
+                        <span id="question-counter" class="text-gray-400 font-semibold">Асуулт 1 / 5</span>
+                        <span id="score-display" class="bg-[#004E89] px-4 py-1 rounded-full font-bold">Оноо: 0</span>
+                    </div>
+                    <h3 id="question-text" class="text-xl md:text-2xl font-bold mb-6 text-center h-16 flex items-center justify-center"></h3>
+                    <div id="answers-container" class="grid grid-cols-1 gap-3">
+                        <!-- Answers generated here -->
+                    </div>
+                </div>
+
+                <div id="quiz-result" class="hidden text-center">
+                    <h2 class="text-3xl font-bold mb-4"><i class="fa-solid fa-trophy mr-3 text-yellow-400"></i>Дууслаа!</h2>
+                    <p class="text-xl mb-6">Таны оноо: <span id="final-score" class="text-[#FF6B35] font-bold text-3xl"></span> / 5</p>
+                    <button onclick="startQuiz()" class="bg-[#004E89] hover:bg-[#003d6d] text-white px-8 py-3 rounded-full font-bold transition-transform transform hover:scale-105">
+                        <i class="fa-solid fa-rotate-right mr-2"></i>Дахин тоглох
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: ТОХИРУУЛАХ (Match Game) -->
+        <section id="tab-match" class="tab-content hidden">
+            <div class="text-center mb-6">
+                <h2 class="text-2xl md:text-3xl font-bold mb-2"><i class="fa-solid fa-object-group mr-2 text-[#FF6B35]"></i>Растер уу? Вектор уу?</h2>
+                <p class="text-gray-300">Зүүн талын үгийг сонгоод, баруун талын тохирох хайрцагт дарна уу.</p>
+                <div class="mt-2 text-[#FF6B35] font-bold text-xl" id="match-score">Олдсон: 0 / 8</div>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-8 max-w-4xl mx-auto">
+                <!-- Items Box -->
+                <div class="flex-1 bg-gray-800 bg-opacity-60 rounded-xl p-4 border border-gray-600">
+                    <h3 class="text-center font-bold mb-4 text-gray-300">Үгс</h3>
+                    <div id="match-items" class="grid grid-cols-2 gap-3">
+                        <!-- Items injected by JS -->
+                    </div>
+                </div>
+
+                <!-- Categories Box -->
+                <div class="flex-1 flex flex-col gap-4">
+                    <div class="category-box flex-1 bg-[#004E89] rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer border-2 border-transparent hover:border-white" onclick="handleCategoryClick('Растер')">
+                        <h3 class="text-2xl font-bold mb-2"><i class="fa-solid fa-image mr-2"></i>Растер</h3>
+                        <p class="text-sm text-center text-gray-200">Пикселээс бүтдэг</p>
+                    </div>
+                    <div class="category-box flex-1 bg-[#F18F01] rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer border-2 border-transparent hover:border-white" onclick="handleCategoryClick('Вектор')">
+                        <h3 class="text-2xl font-bold mb-2"><i class="fa-solid fa-bezier-curve mr-2"></i>Вектор</h3>
+                        <p class="text-sm text-center text-gray-200">Математик томьёо</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Success Message -->
+            <div id="match-success" class="hidden text-center mt-8">
+                <h3 class="text-3xl font-bold text-[#10B981]"><i class="fa-solid fa-circle-check mr-2"></i>Баяр хүргэе! Бүгдийг зөв оллоо. 🎉</h3>
+                <button onclick="resetMatchGame()" class="mt-4 bg-[#FF6B35] px-6 py-2 rounded-full font-bold"><i class="fa-solid fa-rotate-right mr-2"></i>Дахин тоглох</button>
+            </div>
+        </section>
+
+        <!-- TAB 4: ХАРЬЦУУЛАХ -->
+        <section id="tab-compare" class="tab-content hidden space-y-12">
+            
+            <!-- Section 1: Table -->
+            <div class="bg-gray-800 bg-opacity-50 rounded-xl p-4 md:p-6 overflow-hidden">
+                <h3 class="text-2xl font-bold mb-4 text-[#FF6B35] border-b border-gray-600 pb-2"><i class="fa-solid fa-table-list mr-2"></i>Форматуудын харьцуулалт</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-700 text-gray-200">
+                                <th class="p-3 border-b border-gray-600">Формат</th>
+                                <th class="p-3 border-b border-gray-600">Хэмжээ</th>
+                                <th class="p-3 border-b border-gray-600">Чанар</th>
+                                <th class="p-3 border-b border-gray-600 text-center">Тунгалаг дэвсгэр</th>
+                                <th class="p-3 border-b border-gray-600 text-center">Хөдөлгөөн</th>
+                                <th class="p-3 border-b border-gray-600">Зориулалт</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="hover:bg-gray-700 transition-colors">
+                                <td class="p-3 border-b border-gray-700 font-bold text-[#FF6B35]">JPG</td>
+                                <td class="p-3 border-b border-gray-700">Жижиг</td>
+                                <td class="p-3 border-b border-gray-700">Дунд (Шахагддаг)</td>
+                                <td class="p-3 border-b border-gray-700 text-center text-red-400">✗</td>
+                                <td class="p-3 border-b border-gray-700 text-center text-red-400">✗</td>
+                                <td class="p-3 border-b border-gray-700">Гэрэл зураг, Вэб</td>
+                            </tr>
+                            <tr class="hover:bg-gray-700 transition-colors">
+                                <td class="p-3 border-b border-gray-700 font-bold text-[#004E89]">PNG</td>
+                                <td class="p-3 border-b border-gray-700">Дунд/Том</td>
+                                <td class="p-3 border-b border-gray-700">Өндөр (Алдагдалгүй)</td>
+                                <td class="p-3 border-b border-gray-700 text-center text-green-400">✓</td>
+                                <td class="p-3 border-b border-gray-700 text-center text-red-400">✗</td>
+                                <td class="p-3 border-b border-gray-700">Лого, Icon, Вэб</td>
+                            </tr>
+                            <tr class="hover:bg-gray-700 transition-colors">
+                                <td class="p-3 border-b border-gray-700 font-bold text-[#F18F01]">GIF</td>
+                                <td class="p-3 border-b border-gray-700">Жижиг</td>
+                                <td class="p-3 border-b border-gray-700">Бага (256 өнгө)</td>
+                                <td class="p-3 border-b border-gray-700 text-center text-green-400">✓</td>
+                                <td class="p-3 border-b border-gray-700 text-center text-green-400">✓</td>
+                                <td class="p-3 border-b border-gray-700">Animation, Meme</td>
+                            </tr>
+                            <tr class="hover:bg-gray-700 transition-colors">
+                                <td class="p-3 border-b border-gray-700 font-bold text-[#533483]">PSD</td>
+                                <td class="p-3 border-b border-gray-700">Маш том</td>
+                                <td class="p-3 border-b border-gray-700">Хамгийн өндөр</td>
+                                <td class="p-3 border-b border-gray-700 text-center text-green-400">✓</td>
+                                <td class="p-3 border-b border-gray-700 text-center text-green-400">✓</td>
+                                <td class="p-3 border-b border-gray-700">Эх файл, Засварлах</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Section 2: Raster vs Vector -->
+            <div>
+                <h3 class="text-2xl font-bold mb-4 text-[#FF6B35] border-b border-gray-600 pb-2 text-center"><i class="fa-solid fa-not-equal mr-2"></i>Растер болон Вектор</h3>
+                <div class="flex flex-col md:flex-row gap-6">
+                    <div class="flex-1 bg-[#004E89] p-6 rounded-xl shadow-lg border border-blue-400 border-opacity-30">
+                        <h4 class="text-2xl font-bold mb-4 text-center"><i class="fa-solid fa-image mr-2"></i>Растер (Raster)</h4>
+                        <ul class="space-y-3">
+                            <li class="flex items-start"><span class="mr-2">🔴</span> Томруулахад бүдгэрнэ (Пикселдэнэ)</li>
+                            <li class="flex items-start"><span class="mr-2">🟢</span> Олон өнгө, гэрэл сүүдэр гаргахад сайн</li>
+                            <li class="flex items-start"><span class="mr-2">📌</span> Гэрэл зурагт ашиглана</li>
+                            <li class="flex items-start"><span class="mr-2">💾</span> Хэмжээ харьцангуй том</li>
+                            <li class="flex items-start"><span class="mr-2">🛠️</span> Photoshop, Paint</li>
+                        </ul>
+                    </div>
+                    <div class="flex-1 bg-[#F18F01] p-6 rounded-xl shadow-lg border border-orange-400 border-opacity-30">
+                        <h4 class="text-2xl font-bold mb-4 text-center"><i class="fa-solid fa-bezier-curve mr-2"></i>Вектор (Vector)</h4>
+                        <ul class="space-y-3">
+                            <li class="flex items-start"><span class="mr-2">🟢</span> Хэчнээн томруулсан ч бүдгэрэхгүй</li>
+                            <li class="flex items-start"><span class="mr-2">🔴</span> Бодит гэрэл зураг шиг олон өнгө гаргах хэцүү</li>
+                            <li class="flex items-start"><span class="mr-2">📌</span> Лого, зурагт хуудас, фонтонд ашиглана</li>
+                            <li class="flex items-start"><span class="mr-2">💾</span> Файлын хэмжээ маш бага</li>
+                            <li class="flex items-start"><span class="mr-2">🛠️</span> Illustrator, CorelDraw</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 3: RGB vs CMYK -->
+            <div class="bg-gray-800 bg-opacity-50 p-6 rounded-xl text-center">
+                <h3 class="text-2xl font-bold mb-6 text-[#FF6B35]"><i class="fa-solid fa-palette mr-2"></i>RGB vs CMYK</h3>
+                <div class="flex flex-col sm:flex-row justify-center items-center gap-12">
+                    <div class="flex flex-col items-center">
+                        <div class="circle-container rgb-mode mb-4 scale-125">
+                            <div class="color-circle c1"></div>
+                            <div class="color-circle c2"></div>
+                            <div class="color-circle c3"></div>
+                        </div>
+                        <h4 class="text-xl font-bold text-[#DC2626]">RGB</h4>
+                        <p class="text-sm text-gray-300">Дэлгэцэнд зориулсан<br>(Гэрлийн өнгө)</p>
+                    </div>
+                    <div class="hidden sm:block text-3xl font-bold text-gray-500">VS</div>
+                    <div class="flex flex-col items-center">
+                        <div class="circle-container cmyk-mode mb-4 scale-125">
+                            <div class="color-circle c1"></div>
+                            <div class="color-circle c2"></div>
+                            <div class="color-circle c3"></div>
+                        </div>
+                        <h4 class="text-xl font-bold text-[#0891B2]">CMYK</h4>
+                        <p class="text-sm text-gray-300">Хэвлэхэд зориулсан<br>(Бэхний өнгө)</p>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+    </div>
+
+    <script>
+        // --- TAB LOGIC ---
+        function switchTab(tabId) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+                tab.classList.remove('block');
+            });
+            // Remove active state from buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            document.getElementById('tab-' + tabId).classList.add('block');
+            document.getElementById('tab-btn-' + tabId).classList.add('active');
+        }
+
+        // --- QUIZ LOGIC ---
+        const allQuestions = [
+            { q: "Пиксел гэж юу вэ?", a: ["Зургийн хамгийн жижиг нэгж", "Өнгөний төрөл", "Файлын өргөтгөл", "Хэвлэх төхөөрөмж"], correct: 0 },
+            { q: "Аль формат тунгалаг дэвсгэр дэмждэг вэ?", a: ["PNG", "JPG", "BMP", "TXT"], correct: 0 },
+            { q: "Хөдөлгөөнт зурагт ямар формат ашиглах вэ?", a: ["GIF", "JPG", "PSD", "SVG"], correct: 0 },
+            { q: "PSD файл JPG-ээс ялгаатай юу хадгалдаг вэ?", a: ["Layer (Давхарга)", "Вектор өгөгдөл", "Зөвхөн текст", "Видеонууд"], correct: 0 },
+            { q: "RGB юунд ашиглагддаг вэ?", a: ["Дэлгэцэнд", "Хэвлэхэд", "Зураг зурахад", "Файл шахахад"], correct: 0 },
+            { q: "CMYK юунд ашиглагддаг вэ?", a: ["Хэвлэхэд", "Дэлгэцэнд", "Animation-д", "Вэб сайтад"], correct: 0 },
+            { q: "Растер зургийг томруулахад юу болдог вэ?", a: ["Бүдгэрдэг", "Илүү тод болдог", "Хэмжээ нь жижигрдэг", "Вектор болж хувирдаг"], correct: 0 },
+            { q: "Photoshop ямар төрлийн график програм вэ?", a: ["Растер", "Вектор", "3D загварчлал", "Текст боловсруулах"], correct: 0 }
+        ];
+
+        let currentQuestions = [];
+        let currentQuestionIndex = 0;
+        let quizScore = 0;
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function startQuiz() {
+            // Pick 5 random questions
+            let pool = [...allQuestions];
+            shuffleArray(pool);
+            currentQuestions = pool.slice(0, 5);
+            
+            // Randomize answers for each question
+            currentQuestions.forEach(q => {
+                let correctAnswerText = q.a[q.correct];
+                shuffleArray(q.a);
+                q.correct = q.a.indexOf(correctAnswerText);
+            });
+
+            currentQuestionIndex = 0;
+            quizScore = 0;
+            
+            document.getElementById('quiz-intro').classList.add('hidden');
+            document.getElementById('quiz-result').classList.add('hidden');
+            document.getElementById('quiz-container').classList.remove('hidden');
+            
+            showQuestion();
+        }
+
+        function showQuestion() {
+            document.getElementById('score-display').innerText = `Оноо: ${quizScore}`;
+            document.getElementById('question-counter').innerText = `Асуулт ${currentQuestionIndex + 1} / 5`;
+            
+            const q = currentQuestions[currentQuestionIndex];
+            document.getElementById('question-text').innerText = q.q;
+            
+            const answersContainer = document.getElementById('answers-container');
+            answersContainer.innerHTML = '';
+            
+            q.a.forEach((answer, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-5 rounded-lg transition-colors border border-gray-600';
+                btn.innerText = answer;
+                btn.onclick = () => checkAnswer(index, btn);
+                answersContainer.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selectedIndex, btnElement) {
+            const q = currentQuestions[currentQuestionIndex];
+            const allBtns = document.getElementById('answers-container').children;
+            
+            // Disable all buttons
+            for (let btn of allBtns) {
+                btn.disabled = true;
+                btn.classList.remove('hover:bg-gray-600');
+            }
+
+            if (selectedIndex === q.correct) {
+                btnElement.classList.replace('bg-gray-700', 'bg-green-600');
+                btnElement.classList.add('border-green-400');
+                quizScore++;
+            } else {
+                btnElement.classList.replace('bg-gray-700', 'bg-red-600');
+                btnElement.classList.add('border-red-400', 'shake');
+                // Show correct
+                allBtns[q.correct].classList.replace('bg-gray-700', 'bg-green-600');
+            }
+            
+            document.getElementById('score-display').innerText = `Оноо: ${quizScore}`;
+
+            setTimeout(() => {
+                currentQuestionIndex++;
+                if (currentQuestionIndex < 5) {
+                    showQuestion();
+                } else {
+                    endQuiz();
+                }
+            }, 1500);
+        }
+
+        function endQuiz() {
+            document.getElementById('quiz-container').classList.add('hidden');
+            document.getElementById('quiz-result').classList.remove('hidden');
+            document.getElementById('final-score').innerText = quizScore;
+        }
+
+
+        // --- MATCH GAME LOGIC ---
+        const matchData = [
+            { text: "JPG", type: "Растер" },
+            { text: "SVG", type: "Вектор" },
+            { text: "Photoshop", type: "Растер" },
+            { text: "Illustrator", type: "Вектор" },
+            { text: "PNG", type: "Растер" },
+            { text: "GIF", type: "Растер" },
+            { text: "AI", type: "Вектор" },
+            { text: "BMP", type: "Растер" }
+        ];
+
+        let selectedMatchItem = null;
+        let matchedCount = 0;
+
+        function initMatchGame() {
+            const container = document.getElementById('match-items');
+            container.innerHTML = '';
+            matchedCount = 0;
+            selectedMatchItem = null;
+            document.getElementById('match-score').innerText = `Олдсон: 0 / 8`;
+            document.getElementById('match-success').classList.add('hidden');
+
+            let shuffledData = [...matchData];
+            shuffleArray(shuffledData);
+
+            shuffledData.forEach((item, index) => {
+                const btn = document.createElement('div');
+                btn.className = 'match-item bg-gray-700 text-center py-3 rounded-lg font-bold border border-gray-600 hover:bg-gray-600';
+                btn.innerText = item.text;
+                btn.dataset.type = item.type;
+                btn.dataset.index = index;
+                btn.onclick = () => selectMatchItem(btn);
+                container.appendChild(btn);
+            });
+        }
+
+        function selectMatchItem(element) {
+            if (element.classList.contains('matched')) return;
+
+            // Deselect previous
+            document.querySelectorAll('.match-item').forEach(el => el.classList.remove('selected', 'ring', 'ring-white', 'scale-105'));
+            
+            // Select new
+            selectedMatchItem = element;
+            element.classList.add('selected', 'ring', 'ring-white', 'scale-105');
+        }
+
+        function handleCategoryClick(category) {
+            if (!selectedMatchItem) return; // No item selected
+
+            if (selectedMatchItem.dataset.type === category) {
+                // Correct match
+                selectedMatchItem.classList.remove('selected', 'ring', 'ring-white', 'scale-105', 'bg-gray-700', 'hover:bg-gray-600');
+                selectedMatchItem.classList.add('matched', 'bg-green-600', 'border-green-400');
+                selectedMatchItem.innerText += " ✅";
+                matchedCount++;
+                document.getElementById('match-score').innerText = `Олдсон: ${matchedCount} / 8`;
+                
+                selectedMatchItem = null;
+
+                if (matchedCount === 8) {
+                    setTimeout(() => {
+                        document.getElementById('match-success').classList.remove('hidden');
+                    }, 500);
+                }
+            } else {
+                // Wrong match
+                selectedMatchItem.classList.add('shake', 'bg-red-600');
+                setTimeout(() => {
+                    if(selectedMatchItem) {
+                        selectedMatchItem.classList.remove('shake', 'bg-red-600');
+                    }
+                }, 400);
+            }
+        }
+
+        function resetMatchGame() {
+            initMatchGame();
+        }
+
+        // Initialize on load
+        window.onload = () => {
+            initMatchGame();
+        }
+
+    </script>
+</body>
+</html>
